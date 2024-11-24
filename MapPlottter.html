@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parcel Delivery Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #main {
+            display: flex;
+            flex: 1;
+            flex-direction: row;
+        }
+        #left-panel {
+            width: 300px;
+            min-width: 250px;
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+        h2 {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 1em;
+            color: #777;
+            margin-bottom: 10px;
+        }
+        #csv-display {
+            margin-top: 10px;
+            width: 100%;
+            height: 200px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+            resize: vertical;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            background-color: #fafafa;
+        }
+        #file-input {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        #update-map {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.2em;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s;
+        }
+        #update-map:hover {
+            background-color: #0056b3;
+        }
+        #right-panel {
+            flex: 1;
+            position: relative;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        /* Media queries for responsiveness */
+        @media (max-width: 768px) {
+            #main {
+                flex-direction: column;
+            }
+            #left-panel {
+                width: 100%;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="main">
+        <div id="left-panel">
+            <h2>Upload CSV</h2>
+            <p>Format: QR Code, Address</p>
+            <input type="file" id="file-input" accept=".csv" />
+            <textarea id="csv-display" placeholder="CSV content will appear here..."></textarea>
+            <button id="update-map">Update Map</button>
+        </div>
+        <div id="right-panel">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const map = L.map('map').setView([20.0, 0.0], 2); // Initialize the map with a default view
+            const fileInput = document.getElementById('file-input');
+            const csvDisplay = document.getElementById('csv-display');
+            const updateMapButton = document.getElementById('update-map');
+            let markers = []; // Store markers for clearing later
+
+            // Add a tile layer (OpenStreetMap)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Event listener for file input
+            fileInput.addEventListener('change', handleFileUpload);
+
+            // Event listener for the "Update Map" button
+            updateMapButton.addEventListener('click', updateMapFromTextarea);
+
+            function handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const csvData = e.target.result.trim();
+                    csvDisplay.value = csvData; // Display CSV content in the textarea
+                    updateMapFromCSV(csvData);
+                };
+
+                reader.readAsText(file);
+            }
+
+            function updateMapFromTextarea() {
+                const csvData = csvDisplay.value.trim();
+                if (csvData) {
+                    updateMapFromCSV(csvData);
+                } else {
+                    alert("Textarea is empty. Please enter valid CSV data.");
+                }
+            }
+
+            function updateMapFromCSV(csvData) {
+                clearMarkers(); // Remove existing markers from the map
+                const rows = csvData.split('\n').slice(1); // Skip the header row
+
+                rows.forEach((row, index) => {
+                    const [qrCode, address] = row.split(',').map(item => item.trim());
+                    if (!address) {
+                        console.warn(`Row ${index + 1} has an invalid address.`);
+                        return;
+                    }
+                    geocodeAddress(address, qrCode);
+                });
+            }
+
+            function geocodeAddress(address, qrCode) {
+                // Use Leaflet's geocoder for address lookup
+                L.Control.Geocoder.nominatim().geocode(address, function (results) {
+                    if (results.length > 0) {
+                        const { center } = results[0];
+                        const popupContent = `<b>QR Code:</b> ${qrCode}<br><b>Address:</b> ${address}`;
+                        const marker = L.marker(center).addTo(map).bindPopup(popupContent);
+                        markers.push(marker);
+
+                        // Adjust map view to fit all markers
+                        if (markers.length === 1) {
+                            map.setView(center, 10);
+                        } else {
+                            const group = L.featureGroup(markers);
+                            map.fitBounds(group.getBounds());
+                        }
+                    } else {
+                        console.warn(`No geocoding results for address: "${address}"`);
+                    }
+                });
+            }
+
+            function clearMarkers() {
+                // Remove all markers from the map
+                markers.forEach(marker => map.removeLayer(marker));
+                markers = [];
+            }
+        });
+    </script>
+</body>
+</html>
