@@ -11,107 +11,74 @@
             padding: 0;
             box-sizing: border-box;
         }
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f5f5f5;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-        #main {
-            display: flex;
-            flex: 1;
-            flex-direction: row;
-        }
-        #left-panel {
-            width: 300px;
-            min-width: 250px;
-            background-color: #fff;
-            padding: 20px;
-            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-        }
-        h2 {
-            font-size: 1.5em;
-            color: #333;
-            margin-bottom: 10px;
-        }
-        p {
-            font-size: 1em;
-            color: #777;
-            margin-bottom: 10px;
-        }
-        #csv-display {
-            margin-top: 10px;
+        body, html {
             width: 100%;
-            height: 200px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 1em;
-            resize: vertical;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            background-color: #fafafa;
-        }
-        #file-input {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #fff;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 1em;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-        #update-map {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 1.2em;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            transition: background-color 0.3s;
-        }
-        #update-map:hover {
-            background-color: #0056b3;
-        }
-        #right-panel {
-            flex: 1;
-            position: relative;
+            height: 100%;
+            font-family: Arial, sans-serif;
         }
         #map {
             width: 100%;
             height: 100%;
         }
-        /* Media queries for responsiveness */
-        @media (max-width: 768px) {
-            #main {
-                flex-direction: column;
-            }
-            #left-panel {
-                width: 100%;
-                padding: 10px;
-            }
+        /* Floating panel for controls */
+        .control-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            padding: 15px;
+            width: 300px;
+            min-width: 200px;
+            resize: both;
+            overflow: auto;
+            cursor: grab;
+        }
+        .control-panel h2 {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .control-panel p {
+            font-size: 0.9em;
+            color: #555;
+        }
+        .control-panel input, .control-panel textarea, .control-panel button {
+            width: 100%;
+            margin-top: 10px;
+            padding: 10px;
+            font-size: 1em;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .control-panel textarea {
+            height: 120px;
+            resize: none;
+        }
+        .control-panel button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .control-panel button:hover {
+            background-color: #0056b3;
         }
     </style>
 </head>
 <body>
-    <div id="main">
-        <div id="left-panel">
-            <h2>Upload CSV</h2>
-            <p>Format: QR Code, Address</p>
-            <input type="file" id="file-input" accept=".csv" />
-            <textarea id="csv-display" placeholder="CSV content will appear here..."></textarea>
-            <button id="update-map">Update Map</button>
-        </div>
-        <div id="right-panel">
-            <div id="map"></div>
-        </div>
+    <div id="map"></div>
+
+    <!-- Floating control panel -->
+    <div class="control-panel" id="control-panel">
+        <h2>Upload CSV</h2>
+        <p>Format: QR Code, Address</p>
+        <input type="file" id="file-input" accept=".csv" />
+        <textarea id="csv-display" placeholder="CSV content will appear here..."></textarea>
+        <button id="update-map">Update Map</button>
     </div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -200,6 +167,30 @@
                 markers.forEach(marker => map.removeLayer(marker));
                 markers = [];
             }
+
+            // Make the panel draggable
+            const controlPanel = document.getElementById('control-panel');
+            let isDragging = false;
+            let offsetX, offsetY;
+
+            controlPanel.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                offsetX = e.clientX - controlPanel.getBoundingClientRect().left;
+                offsetY = e.clientY - controlPanel.getBoundingClientRect().top;
+                controlPanel.style.cursor = 'grabbing';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    controlPanel.style.left = `${e.clientX - offsetX}px`;
+                    controlPanel.style.top = `${e.clientY - offsetY}px`;
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                controlPanel.style.cursor = 'grab';
+            });
         });
     </script>
 </body>
